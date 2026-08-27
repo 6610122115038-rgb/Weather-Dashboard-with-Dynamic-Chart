@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Dashboard - Intern Portfolio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-8 flex flex-col items-center">
+  <div class="max-w-xl w-full bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700">
+    <h1 class="text-2xl font-bold mb-4 text-center text-blue-400">Weather Forecast Dashboard</h1>
+    
+    <div class="flex gap-2 mb-6">
+      <input type="text" id="cityInput" placeholder="พิมพ์ชื่อเมือง (เช่น Bangkok, Tokyo)" 
+        class="flex-1 px-4 py-2 bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <button onclick="getWeather()" 
+        class="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg font-medium transition">ค้นหา</button>
+    </div>
+
+    <div id="weatherInfo" class="hidden text-center mb-6">
+      <h2 id="cityName" class="text-3xl font-bold"></h2>
+      <p id="temp" class="text-5xl font-extrabold my-2 text-yellow-400"></p>
+      <p id="condition" class="text-slate-300 capitalize"></p>
+    </div>
+
+    <div class="relative h-64 w-full">
+      <canvas id="tempChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    let myChart = null;
+
+    async function getWeather() {
+      const city = document.getElementById('cityInput').value || 'Bangkok';
+      try {
+        // Fetch Geo Location
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1`);
+        const geoData = await geoRes.json();
+        if (!geoData.results) return alert('ไม่พบข้อมูลเมืองนี้');
+
+        const { latitude, longitude, name, country } = geoData.results[0];
+
+        // Fetch Weather Data (No API Key Required)
+        const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m`);
+        const weatherData = await weatherRes.json();
+
+        // Update UI
+        document.getElementById('weatherInfo').classList.remove('hidden');
+        document.getElementById('cityName').innerText = `${name}, ${country}`;
+        document.getElementById('temp').innerText = `${weatherData.current_weather.temperature} °C`;
+        document.getElementById('condition').innerText = `Windspeed: ${weatherData.current_weather.windspeed} km/h`;
+
+        renderChart(weatherData.hourly.time.slice(0, 7), weatherData.hourly.temperature_2m.slice(0, 7));
+      } catch (err) {
+        console.error(err);
+        alert('เกิดข้อผิดพลาดในการดึงข้อมูล');
+      }
+    }
+
+    function renderChart(labels, data) {
+      const ctx = document.getElementById('tempChart').getContext('2d');
+      const formattedLabels = labels.map(t => t.split('T')[1]);
+
+      if (myChart) myChart.destroy();
+
+      myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: formattedLabels,
+          datasets: [{
+            label: 'อุณหภูมิรายชั่วโมง (°C)',
+            data: data,
+            borderColor: '#60a5fa',
+            backgroundColor: 'rgba(96, 165, 250, 0.2)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } },
+          plugins: { legend: { labels: { color: '#fff' } } }
+        }
+      });
+    }
+
+    // Load default city
+    getWeather();
+  </script>
+</body>
+</html>
